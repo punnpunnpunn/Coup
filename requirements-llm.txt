@@ -1,0 +1,5 @@
+# LLM agent dependencies.
+# torch CUDA 12.8 build was installed with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+torch
+transformers

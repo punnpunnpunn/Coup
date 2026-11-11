@@ -57,6 +57,10 @@ class Player:
         """Receive a public game event; agents may override this to track state."""
         pass
 
+    def on_game_start(self, game) -> None:
+        """Called once per player after the game is created and cards are dealt."""
+        pass
+
     def on_game_end(self, winner_id: str) -> None:
         """Receive the winner ID after a game ends."""
         pass

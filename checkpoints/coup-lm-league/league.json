@@ -1,0 +1,125 @@
+{
+ "version": 1,
+ "max_snapshots": 5,
+ "decay": 0.1,
+ "power": 2.0,
+ "members": [
+  {
+   "id": "bc",
+   "kind": "bc",
+   "update": 0,
+   "path": null,
+   "winrate": 0.3687067271896372,
+   "games": 408
+  },
+  {
+   "id": "u0010",
+   "kind": "snap",
+   "update": 10,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0010",
+   "winrate": 0.43359310595286155,
+   "games": 429
+  },
+  {
+   "id": "u0030",
+   "kind": "snap",
+   "update": 30,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0030",
+   "winrate": 0.39190098263619055,
+   "games": 247
+  },
+  {
+   "id": "u0050",
+   "kind": "snap",
+   "update": 50,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0050",
+   "winrate": 0.40421611499464616,
+   "games": 148
+  },
+  {
+   "id": "u0070",
+   "kind": "snap",
+   "update": 70,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0070",
+   "winrate": 0.6403228716331067,
+   "games": 144
+  },
+  {
+   "id": "u0100",
+   "kind": "snap",
+   "update": 100,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0100",
+   "winrate": 0.3,
+   "games": 0
+  }
+ ],
+ "evicted": [
+  {
+   "id": "u0020",
+   "kind": "snap",
+   "update": 20,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0020",
+   "winrate": 0.24718125535777905,
+   "games": 223
+  },
+  {
+   "id": "u0040",
+   "kind": "snap",
+   "update": 40,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0040",
+   "winrate": 0.13466577871216842,
+   "games": 114
+  },
+  {
+   "id": "u0060",
+   "kind": "snap",
+   "update": 60,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0060",
+   "winrate": 0.4255555681705548,
+   "games": 52
+  },
+  {
+   "id": "u0080",
+   "kind": "snap",
+   "update": 80,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0080",
+   "winrate": 0.11558882816844412,
+   "games": 27
+  },
+  {
+   "id": "u0090",
+   "kind": "snap",
+   "update": 90,
+   "path": "checkpoints/coup-lm-league\\snapshots\\u0090",
+   "winrate": 0.3327189321607845,
+   "games": 40
+  }
+ ],
+ "type_stats": {
+  "bots_only": [
+   150,
+   268
+  ],
+  "with_bc": [
+   138,
+   408
+  ],
+  "with_snap": [
+   340,
+   1020
+  ],
+  "with_self": [
+   124,
+   394
+  ]
+ },
+ "pfsp_weights": {
+  "bc": 0.4485311962956192,
+  "u0010": 0.37081676962412635,
+  "u0030": 0.4197844149188306,
+  "u0050": 0.4049584376320727,
+  "u0070": 0.17936763667025463,
+  "u0100": 0.5399999999999999
+ },
+ "update": 100
+}

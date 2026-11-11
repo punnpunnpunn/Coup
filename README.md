@@ -163,6 +163,16 @@ An agent can override `observe(kind, context)` to track public game events. The
 `BeliefHonestRandom` agent uses those events to track role claims, challenge
 contradictions, and clear a player's claim history after a successful exchange.
 
+An agent can also override `on_game_start(game)`, which the game calls for every
+player right after the cards are dealt, to keep a reference to the `Game` before
+its first turn. `game.events` is a structured, player-id-based list of dicts
+aligned one-to-one with `game.log` (`events[i]` describes `log[i]`), so agents
+can read the history without parsing the English log. Each event has a `type`
+(`action`, `coins`, `challenge`, `no_challenge`, `claim_failed`, `claim_proven`,
+`replacement`, `block`, `block_result`, `no_block`, `action_failed`, `exchanged`,
+`steal_fizzled`, `reveal`, `turn`, `win`) plus fields such as `actor`, `target`,
+`player`, `role`, and `delta`, all using player ids and `Role.value` strings.
+
 For example, this agent takes Income until forced to Coup, targeting a random
 living opponent:
 
@@ -236,3 +246,22 @@ require a `target_id`.
 Decision contexts include `decision_player_id` for the player being asked,
 along with action-specific information such as `allowed_roles`, `eligible_blockers`,
 `cards`, and `keep_count`.
+
+## LLM agent
+
+`agents/llm_agent.py` plays Coup with a small pretrained language model
+(`HuggingFaceTB/SmolLM2-135M`) fine-tuned on text transcripts of bot games.
+Each game is written from one player's point of view (`P0` is me) with a header
+saying whether P0 won (`res win` / `res lose`) and a final recap of every
+player's cards. At play time the model is conditioned on `res win` and scores
+each legal move by log-likelihood, so it can never play an illegal move.
+
+```bash
+pip install -r requirements-llm.txt   # torch (CUDA build: see the file) + transformers
+python -m lm.generate_data --games 20000 --out data/transcripts.jsonl
+python -m lm.train --data data/transcripts.jsonl --out checkpoints/coup-lm --epochs 1
+python -m lm.evaluate --games 200 --model checkpoints/coup-lm --greedy
+```
+
+The agent is available in the web app as `LLMAgent`; without a trained
+checkpoint it falls back to the untrained base model.

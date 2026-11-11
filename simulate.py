@@ -34,7 +34,24 @@ def _play_game(game: Game) -> bool:
     return False
 
 
-def main(games: int = 10000):
+def _parse_args(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Round-robin-style bot simulation.")
+    parser.add_argument("--games", type=int, default=10000)
+    parser.add_argument(
+        "--llm", action="append", default=[], metavar="NAME=PATH",
+        help="add an LLMAgent checkpoint to the roster (repeatable)",
+    )
+    parser.add_argument(
+        "--history-max-lines", type=int, default=200,
+        help="LLM agents' past-game history budget (lm.rl trains with 200)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = _parse_args(argv)
     final_agent = FinalAgent("Final Agent")
     playerls = [
         AlwaysDuke("Always Duke"),
@@ -54,6 +71,13 @@ def main(games: int = 10000):
         # Hibernate("Hibernate"),
         final_agent,
     ]
+    for spec in args.llm:
+        from agents.llm_agent import LLMAgent
+
+        name, path = spec.split("=", 1)
+        playerls.append(
+            LLMAgent(name, model_path=path, history_max_lines=args.history_max_lines)
+        )
 
     winners = {
         player.name: [0, 0] for player in playerls
@@ -62,6 +86,7 @@ def main(games: int = 10000):
     draws = 0
     tweaker_endgame_count = 0
 
+    games = args.games
     for _ in range(games):
         players = random.sample(playerls, 4)
         for i in players:
