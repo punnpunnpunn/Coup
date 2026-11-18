@@ -124,6 +124,18 @@ Run a tournament with every playable agent in `agents/`:
 python run_tournament.py
 ```
 
+Submitted agents can also join the built-in roster. Place standalone `.py`
+files in a directory (the starter is in `submission/agents/`) and pass it to
+the tournament command:
+
+```bash
+python run_tournament.py --submission-dir submission/agents \
+  --rounds 1 --games-per-group 10
+```
+
+See [`submission/README.md`](submission/README.md) for the JSON protocol,
+runtime limits, validation rules, and hosting security requirements.
+
 The default run uses 100 rounds and 1,000 games per group. With 14 agents, the
 two byes per round rotate among agents with the fewest previous byes. To run a
 shorter test, adjust the settings and optionally provide a reproducible seed:

@@ -1,4 +1,5 @@
 import random
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -15,6 +16,8 @@ class Game:
     deck: list[Card] = field(default_factory=list)
     current_player: int = 0
     log: list[str] = field(default_factory=list)
+    game_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    disqualifications: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if not 2 <= len(self.players) <= 6:
@@ -125,6 +128,7 @@ class Game:
             (player, player.coins, list(player.cards)) for player in self.players
         ]
         card_states = {card: card.revealed for card in self.deck}
+        disqualifications_before = dict(self.disqualifications)
         for _player, _coins, cards in players_before:
             card_states.update({card: card.revealed for card in cards})
 
@@ -141,7 +145,32 @@ class Game:
                 player.cards[:] = cards
             for card, revealed in card_states.items():
                 card.revealed = revealed
+            self.disqualifications = disqualifications_before
             raise
+
+    def forfeit_player(self, player_id: str, reason: str) -> None:
+        if not reason:
+            raise ValueError("A forfeiture reason is required.")
+        if player_id in self.disqualifications:
+            return
+        player = self._get_player(player_id)
+        self.disqualifications[player_id] = reason
+        self._record_event(
+            f"{player.name} is disqualified ({reason}) and loses all remaining influence."
+        )
+        for card in player.cards:
+            if card.revealed:
+                continue
+            card.revealed = True
+            self._record_event(
+                f"{player.name} loses influence, revealing {card.role.value}."
+            )
+            self._notify_observers(
+                "reveal", {"player_id": player.id, "role": card.role.value}
+            )
+
+    def end_turn(self) -> None:
+        self._end_turn()
 
     def _resolve_action(
         self,
@@ -480,6 +509,8 @@ class Game:
                 ],
             },
         )
+        if not player.alive:
+            return None
         valid_indices = {index for index, _card in active_cards}
         if (
             isinstance(card_index, bool)
@@ -522,6 +553,9 @@ class Game:
                 "keep_count": keep_count,
             },
         )
+        if player.id in self.disqualifications:
+            self.deck.extend(drawn)
+            return []
         valid = (
             isinstance(choices, (list, tuple))
             and len(choices) == keep_count
@@ -561,6 +595,9 @@ class Game:
         player_id = context.get("decision_player_id", context.get("player_id"))
         if isinstance(player_id, str):
             player = self._get_player(player_id)
+            game_decision = getattr(player, "decide_with_game", None)
+            if callable(game_decision):
+                return game_decision(self, kind, context)
             player_decision = getattr(player, "decide", None)
             if callable(player_decision):
                 return player_decision(kind, context)

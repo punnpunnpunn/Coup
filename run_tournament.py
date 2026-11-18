@@ -1,5 +1,6 @@
 import argparse
 import random
+from pathlib import Path
 
 from agents.aggressive_belief import AggressiveBelief
 from agents.aggressive_probabilistic_belief import AggressiveProbabilisticBelief
@@ -18,6 +19,7 @@ from agents.probabilistic_belief_honest_random import (
 from agents.probabilistic_belief_tweaker import ProbabilisticBeliefTweaker
 from agents.random_agent import RandomAgent
 from src.player import Player
+from submission import create_submission_agents
 from tournament import TournamentManager
 
 
@@ -54,10 +56,19 @@ def main() -> None:
     parser.add_argument("--games-per-group", type=int, default=1_000)
     parser.add_argument("--max-turns", type=int, default=100)
     parser.add_argument("--seed", type=int)
+    parser.add_argument(
+        "--submission-dir",
+        type=Path,
+        help="Add each .py agent in this directory to the built-in roster.",
+    )
     args = parser.parse_args()
 
+    players = create_agents()
+    if args.submission_dir is not None:
+        players.extend(create_submission_agents(args.submission_dir))
+
     tournament = TournamentManager(
-        create_agents(),
+        players,
         rounds=args.rounds,
         games_per_group=args.games_per_group,
         max_turns=args.max_turns,
