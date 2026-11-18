@@ -1,13 +1,20 @@
 import random
 
-from agents.belief import BeliefTracker
+from agents.aggressive_probabilistic_belief import (
+	CHALLENGE_ROLE_PROBABILITY,
+)
+from agents.probabilistic_belief import ProbabilisticBeliefTracker
 from src.cards import Role
 from src.game import Game
 from src.player import Player
 
 
+INITIAL_PROBABILISTIC_GAMES = 50
+MINIMUM_PROBABILISTIC_WIN_RATE = 0.25
+
+
 class FinalAgent(Player):
-	"""Fish for a Duke, play passively, then use an independent endgame strategy."""
+	"""Start with probabilistic Duke fishing, then select a strategy by win rate."""
 
 	def __init__(
 		self,
@@ -17,13 +24,16 @@ class FinalAgent(Player):
 	):
 		super().__init__(player_id, name or player_id)
 		self.rng = random.Random(seed)
-		self.belief_tracker = BeliefTracker(player_id)
+		self.belief_tracker = ProbabilisticBeliefTracker(player_id)
 		self._game: Game | None = None
 		self._remaining_influences: int | None = None
 		self._has_acquired_duke = False
 		self._turns_exchange = 0
 		self._reach_endgame = False
 		self._endgame_count = 0
+		self._probabilistic_games_played = 0
+		self._probabilistic_wins = 0
+		self._use_probabilistic_duke_fish = True
 
 	def observe(self, kind: str, context: dict[str, object]) -> None:
 		self.belief_tracker.observe(kind, context)
@@ -70,6 +80,26 @@ class FinalAgent(Player):
 		):
 			self._turns_exchange = 0
 
+	def on_game_end(self, winner_id: str | None) -> None:
+		if not self._use_probabilistic_duke_fish:
+			return
+
+		self._probabilistic_games_played += 1
+		self._probabilistic_wins += int(winner_id == self.id)
+		win_rate = (
+			self._probabilistic_wins / self._probabilistic_games_played
+		)
+
+		if self._probabilistic_games_played == INITIAL_PROBABILISTIC_GAMES:
+			self._use_probabilistic_duke_fish = (
+				win_rate > MINIMUM_PROBABILISTIC_WIN_RATE
+			)
+		elif (
+			self._probabilistic_games_played > INITIAL_PROBABILISTIC_GAMES
+			and win_rate < MINIMUM_PROBABILISTIC_WIN_RATE
+		):
+			self._use_probabilistic_duke_fish = False
+
 	def choose_action(self, game: Game) -> dict:
 		if game.current.id != self.id:
 			raise ValueError("It is not this agent's turn.")
@@ -82,6 +112,8 @@ class FinalAgent(Player):
 		if self._is_endgame and not self._reach_endgame:
 			self._reach_endgame = True
 			self._endgame_count += 1
+		if self._use_probabilistic_duke_fish:
+			return self._choose_probabilistic_duke_fish_action(game)
 		if self._is_endgame:
 			return self._choose_endgame_action(game)
 
@@ -123,6 +155,8 @@ class FinalAgent(Player):
 		return game.perform_action(self.id, "foreign_aid")
 
 	def decide(self, kind: str, context: dict[str, object]) -> object:
+		if self._use_probabilistic_duke_fish:
+			return self._decide_probabilistic_duke_fish(kind, context)
 		if self._is_endgame:
 			return self._decide_endgame(kind, context)
 
@@ -136,6 +170,70 @@ class FinalAgent(Player):
 			return self._choose_fish_exchange(
 				context["cards"], context["keep_count"]
 			)
+		raise ValueError(f"Unknown decision type: {kind}")
+
+	def _choose_probabilistic_duke_fish_action(self, game: Game) -> dict:
+		roles = {card.role for card in self.cards if not card.revealed}
+		if self.coins >= 7:
+			opponents = [
+				player for player in game.alive_players if player.id != self.id
+			]
+			top_coins = max(player.coins for player in opponents)
+			targets = [
+				player for player in opponents if player.coins == top_coins
+			]
+			return game.perform_action(
+				self.id, "coup", target_id=self.rng.choice(targets).id
+			)
+
+		if Role.DUKE in roles:
+			return game.perform_action(self.id, "tax")
+
+		revealed_dukes = sum(
+			card.role == Role.DUKE and card.revealed
+			for player in game.players
+			for card in player.cards
+		)
+		action = "foreign_aid" if revealed_dukes >= 3 else "exchange"
+		return game.perform_action(self.id, action)
+
+	def _decide_probabilistic_duke_fish(
+		self, kind: str, context: dict[str, object]
+	) -> object:
+		if kind == "challenge":
+			return (
+				self.belief_tracker.role_probability(
+					context["claimant_id"], context["role"]
+				)
+				<= CHALLENGE_ROLE_PROBABILITY
+			)
+
+		if kind == "reveal_influence":
+			cards = context["cards"]
+			non_dukes = [
+				card for card in cards if card["role"] != Role.DUKE.value
+			]
+			return (non_dukes or cards)[0]["index"]
+
+		if kind == "exchange":
+			return self._choose_fish_exchange(
+				context["cards"], context["keep_count"]
+			)
+
+		if kind == "block":
+			decision = self._decide_block(context)
+			if (
+				decision is None
+				and context["action"] == "assassinate"
+				and self.id in context["eligible_blockers"]
+				and self.influence == 1
+			):
+				return {
+					"blocker_id": self.id,
+					"role": Role.CONTESSA.value,
+				}
+			return decision
+
 		raise ValueError(f"Unknown decision type: {kind}")
 
 	def _choose_endgame_action(self, game: Game) -> dict:

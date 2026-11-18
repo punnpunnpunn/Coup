@@ -2,7 +2,10 @@ import unittest
 from unittest.mock import patch
 
 from agents.aggressive_belief import AggressiveBelief
-from agents.final_agent import FinalAgent
+from agents.final_agent import (
+	INITIAL_PROBABILISTIC_GAMES,
+	FinalAgent,
+)
 from src.cards import Card, Role
 from src.game import Game
 from src.player import Player
@@ -12,9 +15,16 @@ class FinalAgentTests(unittest.TestCase):
 	def setUp(self):
 		self.agent = FinalAgent("p1", seed=7)
 		self.opponent = Player("p2", "Opponent")
-		self.game = Game([self.agent, self.opponent, Player("p3", "Third player")])
+		self.third_player = Player("p3", "Third player")
+		self.game = Game([self.agent, self.opponent, self.third_player])
 		self.agent.cards = [Card(Role.CAPTAIN), Card(Role.ASSASSIN)]
+		self.opponent.cards = [Card(Role.CONTESSA), Card(Role.AMBASSADOR)]
+		self.third_player.cards = [Card(Role.CAPTAIN), Card(Role.CONTESSA)]
+		self.agent.belief_tracker.sync_own_cards(
+			[card.role for card in self.agent.cards]
+		)
 		self.agent._has_acquired_duke = False
+		self.agent._use_probabilistic_duke_fish = False
 
 	def test_does_not_inherit_aggressive_belief(self):
 		self.assertFalse(issubclass(FinalAgent, AggressiveBelief))
@@ -78,7 +88,7 @@ class FinalAgentTests(unittest.TestCase):
 		with patch.object(self.game, "perform_action", return_value={}) as perform:
 			self.agent.choose_action(self.game)
 
-		self.assertEqual(perform.call_args.args[1], "exchange")
+		self.assertEqual(perform.call_args.args[1], "foreign_aid")
 
 	def test_non_endgame_block_does_not_depend_on_aggressive_belief(self):
 		self.agent.cards = [Card(Role.DUKE), Card(Role.ASSASSIN)]
@@ -122,7 +132,7 @@ class FinalAgentTests(unittest.TestCase):
 		self.assertEqual(self.agent._turns_exchange, 3)
 
 	def test_counts_reaching_endgame_once_per_game(self):
-		self.agent._remaining_influences = 4
+		self.agent._remaining_influences = 2
 
 		with patch.object(self.agent, "_choose_endgame_action", return_value={}):
 			self.agent.choose_action(self.game)
@@ -154,6 +164,70 @@ class FinalAgentTests(unittest.TestCase):
 		self.agent.observe("new_game", {"player_count": 3})
 
 		self.assertFalse(self.agent._reach_endgame)
+
+	def test_uses_probabilistic_duke_fish_during_initial_games(self):
+		self.agent._use_probabilistic_duke_fish = True
+		self.agent.cards = [Card(Role.ASSASSIN), Card(Role.CAPTAIN)]
+
+		with patch.object(self.game, "perform_action", return_value={}) as perform:
+			self.agent.choose_action(self.game)
+
+		self.assertEqual(perform.call_args.args[1], "exchange")
+
+	def test_switches_to_final_strategy_if_first_50_win_rate_is_below_25_percent(self):
+		self.agent._use_probabilistic_duke_fish = True
+		for game_index in range(INITIAL_PROBABILISTIC_GAMES):
+			winner_id = self.agent.id if game_index < 12 else self.opponent.id
+			self.agent.on_game_end(winner_id)
+
+		self.assertFalse(self.agent._use_probabilistic_duke_fish)
+
+	def test_counts_a_draw_as_a_played_non_win(self):
+		self.agent._use_probabilistic_duke_fish = True
+
+		self.agent.on_game_end(None)
+
+		self.assertEqual(self.agent._probabilistic_games_played, 1)
+		self.assertEqual(self.agent._probabilistic_wins, 0)
+
+	def test_keeps_probabilistic_strategy_if_first_50_win_rate_exceeds_25_percent(self):
+		self.agent._use_probabilistic_duke_fish = True
+		for game_index in range(INITIAL_PROBABILISTIC_GAMES):
+			winner_id = self.agent.id if game_index < 13 else self.opponent.id
+			self.agent.on_game_end(winner_id)
+
+		self.assertTrue(self.agent._use_probabilistic_duke_fish)
+
+	def test_switches_if_probabilistic_win_rate_later_dips_below_25_percent(self):
+		self.agent._use_probabilistic_duke_fish = True
+		for game_index in range(INITIAL_PROBABILISTIC_GAMES):
+			winner_id = self.agent.id if game_index < 13 else self.opponent.id
+			self.agent.on_game_end(winner_id)
+
+		self.agent.on_game_end(self.opponent.id)
+		self.assertTrue(self.agent._use_probabilistic_duke_fish)
+		self.agent.on_game_end(self.opponent.id)
+		self.assertTrue(self.agent._use_probabilistic_duke_fish)
+		self.agent.on_game_end(self.opponent.id)
+		self.assertFalse(self.agent._use_probabilistic_duke_fish)
+
+	def test_probabilistic_duke_fish_uses_probabilistic_challenges(self):
+		self.agent._use_probabilistic_duke_fish = True
+
+		with patch.object(
+			self.agent.belief_tracker,
+			"role_probability",
+			return_value=0.01,
+		):
+			self.assertTrue(
+				self.agent.decide(
+					"challenge",
+					{
+						"claimant_id": self.opponent.id,
+						"role": Role.DUKE.value,
+					},
+				)
+			)
 
 
 if __name__ == "__main__":

@@ -75,6 +75,8 @@ def main(games: int = 10000):
             points_per_player = 1 / len(survivors)
             for player in survivors:
                 points[player.name] += points_per_player
+            for player in game.players:
+                player.on_game_end(None)
             draws += 1
             print(
                 "\nDraw: "

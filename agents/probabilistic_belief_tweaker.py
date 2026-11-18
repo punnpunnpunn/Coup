@@ -46,7 +46,7 @@ class ProbabilisticBeliefTweaker(AggressiveProbabilisticBelief):
 	def win_rate(self) -> float:
 		return self.wins / self.games_played if self.games_played else 0.0
 
-	def on_game_end(self, winner_id: str) -> None:
+	def on_game_end(self, winner_id: str | None) -> None:
 		self.games_played += 1
 		won = winner_id == self.id
 		self.wins += int(won)

@@ -57,8 +57,8 @@ class Player:
         """Receive a public game event; agents may override this to track state."""
         pass
 
-    def on_game_end(self, winner_id: str) -> None:
-        """Receive the winner ID after a game ends."""
+    def on_game_end(self, winner_id: str | None) -> None:
+        """Receive the winner ID after a game ends, or None for a draw."""
         pass
 
     def reveal_card(self, index: int):
